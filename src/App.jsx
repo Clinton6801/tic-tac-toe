@@ -2,14 +2,11 @@ import { useState, useEffect } from 'react';
 
 // This is the Square component, a single cell on the board.
 function Square({ value, onSquareClick, isWinningSquare, isThinking }) {
-  // Use a dynamic style to ensure squares always fit the container.
-  const squareStyle = {
-    width: 'min(20vw, 6rem)',
-    height: 'min(20vw, 6rem)'
-  };
-
+  // Adjusted the size for mobile devices to be smaller (w-14 h-14)
+  // and kept the larger size for bigger screens (sm:w-20 sm:h-20).
   const squareClasses = `bg-gray-200 transition-colors duration-200 
-                       text-3xl sm:text-4xl font-bold flex items-center justify-center rounded-xl 
+                       w-14 h-14 sm:w-20 sm:h-20 
+                       text-2xl sm:text-4xl font-bold flex items-center justify-center rounded-xl 
                        shadow-md cursor-pointer
                        ${isWinningSquare ? 'bg-green-500 text-white animate-pulse' : 'hover:bg-gray-300'}
                        ${isThinking ? 'cursor-not-allowed' : ''}`;
@@ -17,14 +14,14 @@ function Square({ value, onSquareClick, isWinningSquare, isThinking }) {
   const valueClasses = value === 'X' ? 'text-red-500' : 'text-blue-500';
 
   return (
-    <button className={squareClasses} style={squareStyle} onClick={onSquareClick} disabled={isThinking}>
+    <button className={squareClasses} onClick={onSquareClick} disabled={isThinking}>
       <span className={valueClasses}>{value}</span>
     </button>
   );
 }
 
 // This is the Board component, which renders the 3x3 grid of squares.
-function Board({ xIsNext, squares, onPlay, winningSquares, isThinking, playerSymbol, gameMode }) {
+function Board({ xIsNext, squares, onPlay, winningSquares, isThinking, playerSymbol, gameMode, playerOneName, playerTwoName }) {
   const winner = calculateWinner(squares);
 
   function handleClick(i) {
@@ -48,12 +45,14 @@ function Board({ xIsNext, squares, onPlay, winningSquares, isThinking, playerSym
   }
 
   let status;
+  const nextPlayerName = xIsNext ? playerOneName : playerTwoName;
   if (winner) {
-    status = `Winner: ${winner}`;
+    const winnerName = winner === 'X' ? playerOneName : playerTwoName;
+    status = `Winner: ${winnerName}`;
   } else if (squares.every(square => square !== null)) {
     status = `It's a draw!`;
   } else {
-    status = `Next player: ${xIsNext ? 'X' : 'O'}`;
+    status = `Next player: ${nextPlayerName}`;
   }
 
   const winningLine = winner ? getWinningSquares(squares) : [];
@@ -109,9 +108,10 @@ function getWinningSquares(squares) {
 }
 
 // Modal component for the end-of-series pop-up
-function EndGameModal({ winner, onResetSeries, seriesLength, playerSymbol }) {
+function EndGameModal({ winner, onResetSeries, seriesLength, playerSymbol, playerOneName, playerTwoName }) {
+  const winnerName = winner === 'X' ? playerOneName : playerTwoName;
   const isPlayerWinner = winner === playerSymbol;
-  const message = isPlayerWinner ? `You've won the series!` : `You've lost the series.`;
+  const message = `The series winner is ${winnerName}!`;
   const icon = isPlayerWinner ? (
     // Congrats SVG
     <svg xmlns="http://www.w3.org/2000/svg" className="h-24 w-24 text-green-500 mb-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -159,11 +159,28 @@ export default function App() {
   const [playerScore, setPlayerScore] = useState(0);
   const [computerScore, setComputerScore] = useState(0);
   const [seriesWinner, setSeriesWinner] = useState(null);
+  
+  // New states for player names
+  const [playerOneName, setPlayerOneName] = useState('');
+  const [playerTwoName, setPlayerTwoName] = useState('');
+  const [namesSet, setNamesSet] = useState(false);
 
   const xIsNext = currentMove % 2 === 0;
   const currentSquares = history[currentMove];
   const winner = calculateWinner(currentSquares);
-
+  
+  const handleNameSubmit = () => {
+    // Set default names if none are provided
+    if (gameMode === 'human') {
+      if (!playerOneName) setPlayerOneName('Player 1');
+      if (!playerTwoName) setPlayerTwoName('Player 2');
+    } else if (gameMode === 'computer') {
+      if (!playerOneName) setPlayerOneName('You');
+      setPlayerTwoName('Saboen');
+    }
+    setNamesSet(true);
+  };
+  
   // Helper function to find the best move for the computer
   const getBestMove = (squares) => {
     const emptySquares = squares.map((val, idx) => val === null ? idx : null).filter(val => val !== null);
@@ -287,6 +304,9 @@ export default function App() {
     setPlayerScore(0);
     setComputerScore(0);
     setSeriesWinner(null);
+    setPlayerOneName('');
+    setPlayerTwoName('');
+    setNamesSet(false);
     resetGame();
   }
 
@@ -295,9 +315,46 @@ export default function App() {
                     bg-gradient-to-br from-black to-blue-900 text-white p-8 lg:p-12 font-sans">
       <h1 className="text-4xl sm:text-5xl font-extrabold mb-8 text-center">Tic-Tac-Toe</h1>
       
-      {seriesWinner && <EndGameModal winner={seriesWinner} onResetSeries={resetAll} seriesLength={seriesLength} playerSymbol={playerSymbol} />}
+      {seriesWinner && <EndGameModal winner={seriesWinner} onResetSeries={resetAll} seriesLength={seriesLength} playerSymbol={playerSymbol} playerOneName={playerOneName} playerTwoName={playerTwoName} />}
       
-      {!gameMode && (
+      {!namesSet && (
+        <>
+          <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center">Set up your game</h2>
+          <div className="flex flex-col space-y-4 w-full max-w-sm">
+            <label className="text-lg">
+              Player 1 Name:
+              <input 
+                type="text" 
+                value={playerOneName}
+                onChange={(e) => setPlayerOneName(e.target.value)}
+                className="mt-2 w-full p-3 rounded-lg text-gray-800 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Player 1"
+              />
+            </label>
+            {gameMode === 'human' && (
+              <label className="text-lg">
+                Player 2 Name:
+                <input 
+                  type="text" 
+                  value={playerTwoName}
+                  onChange={(e) => setPlayerTwoName(e.target.value)}
+                  className="mt-2 w-full p-3 rounded-lg text-gray-800 bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Player 2"
+                />
+              </label>
+            )}
+            <button 
+              onClick={handleNameSubmit}
+              className="mt-4 px-8 py-4 bg-indigo-600 text-white rounded-full font-bold text-lg 
+                        shadow-lg hover:bg-indigo-700 transition-all duration-300"
+            >
+              Start Game
+            </button>
+          </div>
+        </>
+      )}
+      
+      {namesSet && !gameMode && (
         <>
           <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center">Choose Game Mode</h2>
           <div className="flex flex-col space-y-4 w-full max-w-sm">
@@ -309,17 +366,23 @@ export default function App() {
               2-Player Game
             </button>
             <button 
-              onClick={() => setGameMode('computer')}
+              onClick={() => { setGameMode('computer'); setPlayerTwoName('Saboen'); }}
               className="px-8 py-4 bg-teal-600 text-white rounded-full font-bold text-lg 
                         shadow-lg hover:bg-teal-700 transition-all duration-300"
             >
               Play Against Computer
             </button>
+            <button
+              onClick={() => setNamesSet(false)}
+              className="mt-4 px-6 py-3 text-white rounded-full font-bold text-lg hover:underline transition-all duration-300"
+            >
+              Back
+            </button>
           </div>
         </>
       )}
 
-      {gameMode === 'computer' && !difficulty && (
+      {namesSet && gameMode === 'computer' && !difficulty && (
         <>
           <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center">Choose Difficulty</h2>
           <div className="flex flex-col space-y-4 w-full max-w-sm">
@@ -347,7 +410,7 @@ export default function App() {
         </>
       )}
 
-      {gameMode === 'computer' && difficulty && !seriesLength && (
+      {namesSet && gameMode === 'computer' && difficulty && !seriesLength && (
         <>
           <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center">Choose Series Length</h2>
           <div className="flex flex-col space-y-4 w-full max-w-sm">
@@ -371,7 +434,7 @@ export default function App() {
         </>
       )}
 
-      {gameMode === 'computer' && difficulty && seriesLength && !playerSymbol && (
+      {namesSet && gameMode === 'computer' && difficulty && seriesLength && !playerSymbol && (
         <>
           <h2 className="text-2xl sm:text-3xl font-semibold mb-6 text-center">Choose your symbol</h2>
           <div className="flex space-x-4 w-full max-w-sm justify-center">
@@ -399,7 +462,7 @@ export default function App() {
         </>
       )}
       
-      {(playerSymbol || gameMode === 'human') && (
+      {(playerSymbol || gameMode === 'human') && namesSet && (
         <div className="flex flex-col md:flex-row-reverse items-center justify-center
                         space-y-8 md:space-y-0 md:space-x-reverse md:space-x-8 p-8 w-full">
           
@@ -414,6 +477,8 @@ export default function App() {
               isThinking={isThinking}
               playerSymbol={playerSymbol}
               gameMode={gameMode}
+              playerOneName={playerOneName}
+              playerTwoName={playerTwoName}
             />
             {/* The buttons container now has a max-width and is centered */}
             <div className="flex flex-col sm:flex-row space-y-4 sm:space-y-0 sm:space-x-4 mt-4 max-w-xs mx-auto w-full">
@@ -439,8 +504,8 @@ export default function App() {
             <div className="score-panel p-6 bg-gradient-to-r from-gray-800 to-gray-900 rounded-xl shadow-2xl space-y-4 text-center w-full md:w-1/4 max-w-sm md:max-w-xs mx-auto">
               <h2 className="text-xl sm:text-2xl font-bold mb-2">Series Score</h2>
               <div className="flex flex-col space-y-2 text-lg sm:text-xl font-semibold">
-                <span className="text-red-500">Player ({playerSymbol}): {playerScore}</span>
-                <span className="text-blue-500">Computer ({playerSymbol === 'X' ? 'O' : 'X'}): {computerScore}</span>
+                <span className="text-red-500">{playerOneName} ({playerSymbol}): {playerScore}</span>
+                <span className="text-blue-500">{playerTwoName} ({playerSymbol === 'X' ? 'O' : 'X'}): {computerScore}</span>
               </div>
               <p className="text-base sm:text-lg mt-2">Best of {seriesLength}</p>
             </div>
@@ -450,3 +515,4 @@ export default function App() {
     </div>
   );
 }
+// Note: The code above is a complete React component for a Tic-Tac-Toe game with various features including
